@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MockBank | Edit UPI ID</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <div class="logo">Mock<span>Bank</span></div>
+    <div class="nav-right">
+        <span id="greeting"></span>
+        <button id="logout-btn" class="link-btn">Logout</button>
+    </div>
+</div>
+
+<div class="customer-section">
+    <div class="customer-card">
+        <h2 id="customer-section-heading"></h2>
+        <div id="customer-details" class="customer-detail-grid"></div>
+    </div>
+</div>
+
+<div class="app-shell">
+    <div class="sidebar">
+        <nav>
+            <a href="/profile">Customer Profile</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="card">
+            <h1>Edit UPI ID</h1>
+            <p class="subtitle">UPI ID: <strong id="upi-id-label"></strong></p>
+
+            <div id="message" class="message"></div>
+
+            <form id="edit-upi-form">
+                <div class="field">
+                    <label for="account_id">Linked Account</label>
+                    <select id="account_id" name="account_id" required></select>
+                </div>
+
+                <button type="submit" class="btn-primary">UPDATE LINKED ACCOUNT</button>
+            </form>
+
+            <a href="/profile" class="back-link">Back to My Accounts</a>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/edit-upi.js"></script>
+</body>
+</html>

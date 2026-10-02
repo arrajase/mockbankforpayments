@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MockBank | Login</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <div class="logo">Mock<span>Bank</span></div>
+</div>
+
+<div class="page">
+    <div class="card">
+        <h1>Login</h1>
+        <p class="subtitle">Access your MockBank account</p>
+
+        <div id="message" class="message"></div>
+
+        <form id="login-form">
+            <div class="field">
+                <label for="login_id">Login ID</label>
+                <input type="text" id="login_id" name="login_id" required autocomplete="username">
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-primary">LOGIN</button>
+        </form>
+
+        <div class="divider">New to MockBank?</div>
+        <a href="/signup" class="btn-secondary">SIGN UP</a>
+    </div>
+</div>
+
+<script src="/static/js/login.js"></script>
+</body>
+</html>

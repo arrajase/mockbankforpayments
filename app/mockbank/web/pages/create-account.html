@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MockBank | Create Account</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <div class="logo">Mock<span>Bank</span></div>
+    <div class="nav-right">
+        <span id="greeting"></span>
+        <button id="logout-btn" class="link-btn">Logout</button>
+    </div>
+</div>
+
+<div class="customer-section">
+    <div class="customer-card">
+        <h2 id="customer-section-heading"></h2>
+        <div id="customer-details" class="customer-detail-grid"></div>
+    </div>
+</div>
+
+<div class="app-shell">
+    <div class="sidebar">
+        <nav>
+            <a href="/profile">Customer Profile</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="card">
+            <h1>Create Account</h1>
+            <p class="subtitle">Open a new checking or savings account</p>
+
+            <div id="message" class="message"></div>
+
+            <form id="create-account-form">
+                <div class="field">
+                    <label>Account Type</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="account_type" value="checking" checked> Checking</label>
+                        <label><input type="radio" name="account_type" value="savings"> Savings</label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="currency">Currency</label>
+                    <select id="currency" name="currency" required>
+                        <option value="INR">INR - Indian Rupee</option>
+                        <option value="USD" selected>USD - US Dollar</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="GBP">GBP - British Pound</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="account_name">Account Name</label>
+                    <input type="text" id="account_name" name="account_name" placeholder="e.g. My Primary Checking" required>
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" disabled>
+                    </div>
+                    <div class="field">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" disabled>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">CREATE ACCOUNT</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/create-account.js"></script>
+</body>
+</html>

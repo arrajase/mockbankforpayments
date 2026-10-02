@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MockBank | My Profile</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <div class="logo">Mock<span>Bank</span></div>
+    <div class="nav-right">
+        <span id="greeting"></span>
+        <button id="logout-btn" class="link-btn">Logout</button>
+    </div>
+</div>
+
+<div class="customer-section">
+    <div class="customer-card">
+        <h2 id="customer-section-heading"></h2>
+        <div id="customer-details" class="customer-detail-grid"></div>
+    </div>
+</div>
+
+<div class="app-shell">
+    <div class="sidebar">
+        <nav>
+            <a href="/profile">Customer Profile</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="accounts-section">
+            <div class="profile-header">
+                <h1>My Accounts</h1>
+                <div class="profile-header-actions">
+                    <button id="create-upi-btn" class="btn-secondary btn-inline" hidden>+ CREATE UPI ID</button>
+                    <button id="create-account-btn" class="btn-primary btn-inline">+ CREATE ACCOUNT</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Checking Accounts</h2>
+                <div id="checking-list" class="account-list"></div>
+            </div>
+
+            <div class="section">
+                <h2>Savings Accounts</h2>
+                <div id="savings-list" class="account-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/profile.js"></script>
+</body>
+</html>

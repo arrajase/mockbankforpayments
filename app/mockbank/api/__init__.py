@@ -1,1 +1,1 @@
-from app.mockbank.api.routes import accounts, payments, webhooks  # noqa: F401
+from app.mockbank.api.routes import accounts, webhooks  # noqa: F401

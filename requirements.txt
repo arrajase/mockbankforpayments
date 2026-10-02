@@ -2,3 +2,7 @@ fastapi
 uvicorn[standard]
 pydantic
 httpx
+sqlalchemy
+psycopg[binary]
+python-dotenv
+bcrypt

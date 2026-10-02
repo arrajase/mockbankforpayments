@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MockBank | Create UPI ID</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <div class="logo">Mock<span>Bank</span></div>
+    <div class="nav-right">
+        <span id="greeting"></span>
+        <button id="logout-btn" class="link-btn">Logout</button>
+    </div>
+</div>
+
+<div class="customer-section">
+    <div class="customer-card">
+        <h2 id="customer-section-heading"></h2>
+        <div id="customer-details" class="customer-detail-grid"></div>
+    </div>
+</div>
+
+<div class="app-shell">
+    <div class="sidebar">
+        <nav>
+            <a href="/profile">Customer Profile</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="card">
+            <h1>Create UPI ID</h1>
+            <p class="subtitle">Pick a handle and link an account to it</p>
+
+            <div id="message" class="message"></div>
+
+            <form id="create-upi-form">
+                <div class="field">
+                    <label for="handle">UPI Handle</label>
+                    <div class="upi-handle-row">
+                        <input type="text" id="handle" name="handle" pattern="[A-Za-z0-9]+" placeholder="yourname" required>
+                        <span class="upi-suffix">@okmockbank</span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="account_id">Link Account</label>
+                    <select id="account_id" name="account_id" required></select>
+                </div>
+
+                <button type="submit" class="btn-primary">CREATE UPI ID</button>
+            </form>
+
+            <a href="/profile" class="back-link">Back to My Accounts</a>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/create-upi.js"></script>
+</body>
+</html>

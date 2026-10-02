@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MockBank | Account Details</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <div class="logo">Mock<span>Bank</span></div>
+    <div class="nav-right">
+        <span id="greeting"></span>
+        <button id="logout-btn" class="link-btn">Logout</button>
+    </div>
+</div>
+
+<div class="customer-section">
+    <div class="customer-card">
+        <h2 id="customer-section-heading"></h2>
+        <div id="customer-details" class="customer-detail-grid"></div>
+    </div>
+</div>
+
+<div class="app-shell">
+    <div class="sidebar">
+        <nav>
+            <a href="/profile">Customer Profile</a>
+            <a id="post-transaction-link" href="#">Post Transaction</a>
+            <a id="account-statement-link" href="#">Account Statement</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="card">
+            <h1>Account Details</h1>
+            <p class="subtitle">Overview of your account</p>
+
+            <div id="message" class="message"></div>
+
+            <div id="details" class="detail-list"></div>
+
+            <a href="/profile" class="back-link">Back to My Accounts</a>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/account.js"></script>
+</body>
+</html>
