@@ -3,15 +3,23 @@
     docker compose up -d db
     TEST_DATABASE_URL=postgresql+psycopg://mockbank:mockbank@localhost:5433/mockbank_test uv run pytest
 
+TEST_DATABASE_URL can also be put in .env; an environment variable wins over it.
 The test database is wiped, so TEST_DATABASE_URL must never point at real data.
 """
 
 import os
 import uuid
+from pathlib import Path
 
 import pytest
+from dotenv import dotenv_values
 
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+# Read only TEST_DATABASE_URL from .env; everything else in .env (notably DATABASE_URL) is ignored.
+_dotenv = dotenv_values(Path(__file__).resolve().parent.parent / ".env")
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or _dotenv.get("TEST_DATABASE_URL")
+
+if TEST_DATABASE_URL and TEST_DATABASE_URL in (_dotenv.get("DATABASE_URL"), os.environ.get("DATABASE_URL")):
+    raise pytest.UsageError("TEST_DATABASE_URL is the same as DATABASE_URL; the tests would wipe that database")
 
 # Must be set before the app is imported: config is read at import time, and .env must not win.
 if TEST_DATABASE_URL:
