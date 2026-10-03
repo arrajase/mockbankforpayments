@@ -21,8 +21,8 @@ function renderDetails(account) {
     container.innerHTML = rows
         .map(([label, value]) => `
             <div class="detail-row">
-                <span class="detail-label">${label}</span>
-                <span class="detail-value">${value}</span>
+                <span class="detail-label">${escapeHtml(label)}</span>
+                <span class="detail-value">${escapeHtml(value)}</span>
             </div>
         `)
         .join("");
@@ -39,14 +39,11 @@ async function loadAccount() {
     document.getElementById("account-statement-link").href = `/account-statement?id=${encodeURIComponent(accountId)}`;
 
     try {
-        const response = await fetch(`/accounts/${encodeURIComponent(accountId)}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-            showMessage(data.detail || "Account not found.", "error");
+        const { ok, data } = await api(`/accounts/${encodeURIComponent(accountId)}`);
+        if (!ok) {
+            showMessage(errorMessage(data, "Account not found."), "error");
             return;
         }
-
         renderDetails(data);
     } catch (err) {
         showMessage("Unable to reach the server. Please try again.", "error");

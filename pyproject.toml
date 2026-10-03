@@ -5,8 +5,18 @@ description = "Mock Bank website to act as source for payments app"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.20.0",
+    "bcrypt>=5.0.0",
     "fastapi>=0.142.2",
     "httpx>=0.28.1",
+    "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
+    "python-dotenv>=1.2.4",
+    "sqlalchemy>=2.1.3",
     "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
 ]

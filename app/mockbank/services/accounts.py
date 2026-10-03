@@ -1,8 +1,8 @@
 import random
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.mockbank.core.errors import BankError
 from app.mockbank.db.models import AccountModel, CustomerModel
 from app.mockbank.models.schemas import Account, AccountCreate
 from app.mockbank.utils.common import new_id
@@ -16,11 +16,7 @@ def _generate_account_number(db: Session) -> str:
             return candidate
 
 
-def create_account(db: Session, payload: AccountCreate) -> Account:
-    customer = db.get(CustomerModel, payload.customer_id)
-    if customer is None:
-        raise HTTPException(status_code=404, detail="customer not found")
-
+def create_account(db: Session, customer: CustomerModel, payload: AccountCreate) -> Account:
     account = AccountModel(
         account_id=new_id("acct"),
         account_number=_generate_account_number(db),
@@ -37,11 +33,12 @@ def create_account(db: Session, payload: AccountCreate) -> Account:
     return Account.model_validate(account)
 
 
-def get_account(db: Session, account_id: str) -> Account:
+def get_own_account(db: Session, customer: CustomerModel, account_id: str) -> AccountModel:
+    """404 (not 403) for someone else's account, so account IDs can't be probed."""
     account = db.get(AccountModel, account_id)
-    if account is None:
-        raise HTTPException(status_code=404, detail="account not found")
-    return Account.model_validate(account)
+    if account is None or account.customer_id != customer.customer_id:
+        raise BankError("NOT_FOUND", "account not found")
+    return account
 
 
 def list_accounts_for_customer(db: Session, customer_id: str) -> list[Account]:

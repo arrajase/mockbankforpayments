@@ -18,129 +18,341 @@ Postgres (Neon) database.
 ## Running locally
 
 ```
+uv sync
+uv run alembic upgrade head          # creates/updates the schema
 uv run uvicorn main:app --reload
 ```
 
-Requires a `.env` with `DATABASE_URL`, `BANK_API_KEY`, and
-`WEBHOOK_SIGNING_SECRET` (see `.env.example`).
+Requires a `.env` with `DATABASE_URL` (see `.env.example`). For plain-http local
+development set `COOKIE_SECURE=false`.
 
-## Integrating a 3rd-party payments app: the `/upi` gateway
-
-A payments app should **never need to know a customer's internal
-`account_id`** — the only identifier it deals with is the customer's **UPI
-ID** (e.g. `someone@okmockbank`). Resolving a UPI ID to its linked account,
-and everything that touches money, happens server-side.
-
-> Note: `POST /upi`, `GET /upi`, and `PUT /upi/{upi_id}` are separate,
-> unauthenticated endpoints used by MockBank's own website for a customer to
-> create/view/edit their own UPI ID. They are not part of the 3rd-party
-> integration surface below.
-
-### Authentication
-
-Every endpoint below requires an `x-api-key` header matching the `BANK_API_KEY`
-configured in MockBank's `.env`. Missing the header returns `422`; a wrong
-value returns `401`.
+Or run everything, including Postgres, with Docker:
 
 ```
-x-api-key: <BANK_API_KEY>
+docker compose up --build            # http://localhost:8000
 ```
 
-### `GET /upi/{upi_id}/balance`
+### Database migrations
 
-Returns the current balance of the account linked to a UPI ID.
+The schema is managed by Alembic (`migrations/`). The app no longer calls
+`create_all`; Render runs `alembic upgrade head` before starting. Revision
+`0001` is the original schema and skips tables that already exist, so an
+existing database created by the old code upgrades in place.
 
-**Response `200`**
+### Tests
+
+The tests need a **disposable** Postgres database (SQLite ignores
+`SELECT … FOR UPDATE`, so the locking tests would prove nothing). The database
+is wiped on every run.
+
+```
+docker compose up -d db
+TEST_DATABASE_URL=postgresql+psycopg://mockbank:mockbank@localhost:5433/mockbank_test uv run pytest
+```
+
+Without `TEST_DATABASE_URL` every test is skipped.
+
+### Issuing API keys
+
+```
+python -m app.mockbank.cli create-client --name paymentsapp-dev --owner <customer_id> [--webhook-url URL]
+python -m app.mockbank.cli list-clients
+python -m app.mockbank.cli set-webhook --name paymentsapp-dev --url URL
+python -m app.mockbank.cli deactivate-client --name paymentsapp-dev
+```
+
+`create-client` prints the API key and webhook secret once; only the key's hash
+is stored. `--owner` is the bank customer whose UPI IDs the client may pay
+from (e.g. the "PaymentsApp" business customer that holds the escrow and
+operating UPI IDs). A customer may hold several UPI IDs, each linked to one of
+their accounts and protected by its own UPI PIN.
+
+## The website
+
+Customers sign up, log in (an `HttpOnly; Secure; SameSite=Lax` session cookie,
+30-minute idle expiry) and manage their own accounts and UPI IDs. Every
+website endpoint takes the customer from the session; another customer's
+account or UPI ID answers `404`. `POST`/`PUT` calls must carry an `Origin`
+header matching the bank's own site (`ALLOWED_ORIGINS`).
+
+- **Post Transaction** ("ATM Deposit" etc.) creates test money, only in the
+  customer's own accounts. The bank stamps the date and time.
+- **Pending Requests** lists collect requests addressed to the customer's UPI
+  IDs, to approve with the UPI PIN or decline.
+- **App Permissions** lists consents, to allow with the UPI PIN, deny, or
+  revoke later.
+
+## Integrating a payments app: the gateway
+
+A payments app only ever deals in **UPI IDs** (e.g. `someone@okmockbank`),
+never internal account IDs. Each app is an **API client** with its own key.
+
+### Authentication and permissions
+
+```
+x-api-key: mbk_<prefix>_<secret>
+```
+
+| Action | Allowed when |
+|---|---|
+| `pay`, `transactions` (move money out) | the UPI ID belongs to the client's owner customer |
+| Take money from a customer | only via a collect request the customer approves with their UPI PIN |
+| `balance`, `statement` | the UPI ID is the client's own, **or** `consent_id` names an ACTIVE consent covering that purpose (and, for statements, the date range) |
+| `verify` | any UPI ID, at most 10 calls per minute per client |
+| Transaction, collect and consent lookups, `/events` | only the client's own |
+
+Anything else returns `403 NOT_PERMITTED` (or `CONSENT_REQUIRED`).
+
+### Errors
+
+Every error has one shape:
+
 ```json
-{
-  "upi_id": "someone@okmockbank",
-  "owner_name": "Jane Doe",
-  "account_type": "checking",
-  "balance_cents": 15000,
-  "currency": "USD"
-}
+{"error": {"code": "INSUFFICIENT_FUNDS", "message": "insufficient funds", "retryable": false}}
 ```
 
-**Errors:** `404` if the UPI ID doesn't exist.
+Decide whether to retry from `retryable`, not from the status code.
 
-### `GET /upi/{upi_id}/statement`
+| Code | HTTP | Meaning |
+|---|---|---|
+| `VALIDATION_ERROR` | 422 | Malformed request |
+| `UNAUTHORIZED` | 401 | Missing/invalid API key, or not logged in |
+| `UPI_NOT_FOUND` | 404 | Unknown UPI ID |
+| `UPI_INACTIVE` | 422 | UPI ID is not ACTIVE |
+| `TRANSACTION_NOT_FOUND`, `NOT_FOUND` | 404 | Nothing of yours with that ID |
+| `INSUFFICIENT_FUNDS` | 422 | Recorded as a FAILED transaction (see below) |
+| `CURRENCY_MISMATCH` | 422 | Sender, recipient and request currency differ |
+| `SAME_UPI` | 422 | Sender and recipient are the same UPI ID or account |
+| `NOT_PERMITTED` | 403 | The client may not act for that UPI ID |
+| `CONSENT_REQUIRED` | 403 | No ACTIVE consent covering this read |
+| `IDEMPOTENCY_KEY_REQUIRED` | 400 | Money-moving call without `Idempotency-Key` |
+| `IDEMPOTENCY_KEY_REUSED` | 409 | Same key, different request |
+| `DUPLICATE_REFERENCE` | 409 | `client_reference` already used by this client |
+| `COLLECT_EXPIRED`, `INVALID_STATE` | 409 | Collect request or consent no longer actionable |
+| `PIN_INVALID` / `PIN_LOCKED` | 422 / 423 | Wrong UPI PIN; three wrong PINs lock it for 24 hours |
+| `RATE_LIMITED` | 429 | Retryable |
+| `INTERNAL_ERROR` / `SERVICE_UNAVAILABLE` | 500 / 503 | Retryable; use the same `Idempotency-Key` |
 
-Returns the transaction history for the account linked to a UPI ID, newest
-first.
+### Idempotency
 
-**Response `200`**
-```json
-[
-  {
-    "transaction_id": "txn_...",
-    "tran_type": "ATM Deposit",
-    "posting_type": "Credit",
-    "amount": 15000,
-    "tran_date": "2026-10-02"
-  }
-]
+`POST /upi/{upi_id}/pay`, `POST /upi/{upi_id}/transactions` and
+`POST /collect-requests` require:
+
+```
+Idempotency-Key: <uuid>
 ```
 
-**Errors:** `404` if the UPI ID doesn't exist.
+- Same key, same body: the stored response is returned (header
+  `Idempotent-Replayed: true`) and no money moves.
+- Same key, different body: `409 IDEMPOTENCY_KEY_REUSED`.
+- Keys are kept for 7 days.
 
-### `POST /upi/{upi_id}/transactions`
+The key, the balance change, both ledger legs and the outbox event are
+committed in one database transaction, so a retry after a lost response can
+never pay twice.
 
-Posts a single-account transaction (deposit, withdrawal, fee, etc.) against
-the account linked to a UPI ID. The debit/credit direction and the matching
-general-ledger posting are determined server-side — do not send a
-`posting_type`.
+### Amounts, currency and dates
 
-**Request body**
-```json
-{
-  "tran_type": "ATM Deposit",
-  "amount_cents": 15000,
-  "tran_date": "2026-10-02"
-}
-```
-
-`tran_type` must be one of:
-`ATM Deposit`, `ATM Withdrawal`, `ATM Fees`, `POS Purchase`, `Cash Back`, `Credit Interest`
-
-**Response `200`** — same shape as a statement entry (see above).
-
-**Errors:** `404` unknown UPI ID · `400` insufficient funds for a debit type
-(no balance change, nothing is written) · `422` invalid `tran_type` or
-non-positive `amount_cents`.
+Amounts are integer minor units (`amount_cents`, paise for INR). `currency` is
+required on every money request and must match both accounts. New accounts
+default to INR. The bank sets `created_at` (UTC) and `tran_date` (the date in
+IST); any `tran_date` you send is ignored.
 
 ### `POST /upi/{upi_id}/pay`
 
-Transfers money from the UPI ID in the path (sender) to another UPI ID
-(recipient). Debits the sender's account, credits the recipient's — both
-sides land in `TRANSACTION_HISTORY` as `Fund Transfer To` (sender) and
-`Fund Transfer From` (recipient).
+Pays from one of the client's own UPI IDs.
 
-**Request body**
 ```json
 {
-  "recipient_upi_id": "someoneelse@okmockbank",
+  "recipient_upi_id": "someone@okmockbank",
   "amount_cents": 12000,
-  "tran_date": "2026-10-02"
+  "currency": "INR",
+  "client_reference": "payout-8812",
+  "narration": "Refund for order 8812"
 }
 ```
 
-**Response `200`**
+`client_reference` is required, at most 64 characters, unique per client.
+`narration` is optional, at most 100 characters.
+
+**Response `200`**, a transaction record:
+
 ```json
 {
-  "transaction_id": "txn_...",
-  "sender_upi_id": "someone@okmockbank",
-  "recipient_upi_id": "someoneelse@okmockbank",
-  "amount": 12000,
-  "tran_date": "2026-10-02"
+  "transaction_id": "txn_…",
+  "transfer_id": "trf_…",
+  "status": "SUCCESS",
+  "failure_reason": null,
+  "tran_type": "Fund Transfer To",
+  "posting_type": "Debit",
+  "amount_cents": 12000,
+  "currency": "INR",
+  "upi_id": "escrow@okmockbank",
+  "counterparty_upi_id": "someone@okmockbank",
+  "sender_upi_id": "escrow@okmockbank",
+  "recipient_upi_id": "someone@okmockbank",
+  "client_reference": "payout-8812",
+  "narration": "Refund for order 8812",
+  "balance_after_cents": 88000,
+  "created_at": "2026-10-03T09:15:02.123456Z",
+  "tran_date": "2026-10-03"
 }
 ```
 
-**Errors:** `404` either UPI ID doesn't exist · `400` sender and recipient are
-the same UPI ID, or sender has insufficient funds (no balance change on
-either side) · `422` non-positive `amount_cents`.
+**Insufficient funds** is a recorded outcome: `422` with
+`{"error": {...INSUFFICIENT_FUNDS...}, "transaction": {...status: "FAILED"...}}`.
+The failed transaction can be looked up by its reference.
 
-### Amounts
+### `POST /upi/{upi_id}/transactions`
 
-All `amount_cents` values are integer cents (e.g. `15000` = `150.00`), to
-avoid floating-point rounding issues. Responses echo amounts back the same
-way.
+Single-account posting (`ATM Deposit`, `ATM Withdrawal`, `ATM Fees`,
+`POS Purchase`, `Cash Back`, `Credit Interest`) on one of the client's own UPI
+IDs. The body has `tran_type`, `amount_cents`, `currency`, `client_reference`
+and optional `narration`. It returns a transaction record.
+
+### Status lookup
+
+When a call's outcome is unknown (timeout, `5xx`), ask:
+
+- `GET /transactions/{transaction_id}`
+- `GET /transactions?client_reference=payout-8812`
+
+Both return the transaction record (`SUCCESS`, or `FAILED` with
+`failure_reason`), or `404 TRANSACTION_NOT_FOUND` if the bank never recorded
+it. Only the calling client's own transactions are visible.
+
+### `GET /upi/{upi_id}/verify`
+
+Checks a UPI ID without revealing its balance. Rate limited to 10 calls per
+minute per client.
+
+```json
+{"upi_id": "someone@okmockbank", "account_holder_name": "Jane Doe", "currency": "INR", "status": "ACTIVE"}
+```
+
+### `GET /upi/{upi_id}/balance[?consent_id=…]`
+
+```json
+{"upi_id": "…", "owner_name": "…", "account_type": "checking", "balance_cents": 15000, "currency": "INR"}
+```
+
+### `GET /upi/{upi_id}/statement?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=100&cursor=…[&consent_id=…]`
+
+Successful postings, newest first:
+
+```json
+{"items": [/* transaction records */], "next_cursor": "…or null"}
+```
+
+Pass `next_cursor` back as `cursor` for the next page. `limit` is at most 500.
+With a consent, `from`/`to` default to the consented range and may not go
+outside it. `client_reference` is only shown on lines your client created.
+
+### Collect requests: taking money from a customer
+
+`POST /collect-requests` (requires `Idempotency-Key`):
+
+```json
+{
+  "payer_upi_id": "someone@okmockbank",
+  "payee_upi_id": "escrow@okmockbank",
+  "amount_cents": 50000,
+  "currency": "INR",
+  "client_reference": "topup-311",
+  "note": "Add money to wallet",
+  "expires_in_seconds": 300
+}
+```
+
+`payee_upi_id` must be the client's own. `expires_in_seconds` is at most 900.
+It returns `201` with `collect_id`, `status: "PENDING"` and `expires_at`.
+
+The customer approves on the website's **Pending Requests** page with their
+UPI PIN. The app never sees the PIN. Approval runs the transfer in one
+commit:
+
+| Status | Meaning |
+|---|---|
+| `PENDING` | Waiting for the customer |
+| `SUCCESS` | Paid; `transaction_id` is set (its `client_reference` is the collect's) |
+| `FAILED` | `failure_reason`, e.g. `INSUFFICIENT_FUNDS` |
+| `DECLINED` | The customer said no |
+| `EXPIRED` | Not acted on in time (checked on read and by a periodic sweep) |
+
+`GET /collect-requests/{collect_id}` returns the current state. Every change
+also produces a `collect_request.updated` event.
+
+### Consents: linking and statements
+
+`POST /consents`:
+
+```json
+{
+  "upi_id": "someone@okmockbank",
+  "purposes": ["LINK", "STATEMENT", "BALANCE"],
+  "statement_from": "2026-04-01",
+  "statement_to": "2026-09-30",
+  "expires_at": "2027-10-03T00:00:00Z"
+}
+```
+
+`statement_from`/`statement_to` are required with `STATEMENT`. The call
+returns `201` with `consent_id` and `status: "PENDING"`. The customer allows
+it on the **App Permissions** page with their UPI PIN, which makes it
+`ACTIVE`, and can later revoke it (`REVOKED`). Other states are `REJECTED` and
+`EXPIRED`. An ACTIVE `LINK` consent is the bank's confirmation that the
+customer owns the UPI ID.
+
+`GET /consents/{consent_id}` returns the current state. Changes produce
+`consent.updated` events.
+
+### Webhooks and events
+
+Events:
+
+- `transaction.posted`: any successful movement on an account owned by the
+  client's owner customer, including ones the client didn't make (e.g. a
+  website deposit into escrow).
+- `collect_request.updated`
+- `consent.updated`
+
+Payload (the request body):
+
+```json
+{"event_id": "evt_…", "type": "transaction.posted", "created_at": "…Z", "data": { /* record */ }}
+```
+
+Headers:
+
+```
+X-MockBank-Event-Id: evt_…
+X-MockBank-Signature: t=<unix seconds>,v1=<hex>
+```
+
+`v1 = HMAC_SHA256(webhook_secret, f"{t}.{raw_body}")`. Verify it against the
+raw bytes before parsing, and reject stale `t` values.
+
+Events are written in the same commit as the change they describe and
+delivered **at least once**. Respond `2xx` to acknowledge. Failed deliveries
+are retried after 1 minute, 5 minutes, 30 minutes and 2 hours, then every
+2 hours, giving up 24 hours after the event. De-duplicate on `event_id`.
+
+Render's free tier sleeps, which stops delivery. Poll to catch up:
+
+```
+GET /events?after=<last event_id you processed>&limit=100   →   {"items": [/* events, oldest first */]}
+```
+
+### Sandbox triggers
+
+With `SANDBOX_TRIGGERS=true`, the last two digits of `amount_cents` force a
+failure, so the app's handling of unknown outcomes can be tested:
+
+| Amount ends in | Behaviour |
+|---|---|
+| `…13` | Moves the money, then waits 30 seconds before answering (client times out) |
+| `…14` | Moves the money, then returns `500` (no confirmation of a payment that succeeded) |
+| `…15` | Returns `503` without moving any money |
+| `…16` | A collect request expires immediately |
+
+Retrying `…14` with the same `Idempotency-Key` returns the stored success.

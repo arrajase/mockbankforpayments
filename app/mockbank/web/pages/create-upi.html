@@ -50,6 +50,18 @@
                     <select id="account_id" name="account_id" required></select>
                 </div>
 
+                <div class="field-row">
+                    <div class="field">
+                        <label for="upi_pin">UPI PIN (4–6 digits)</label>
+                        <input type="password" id="upi_pin" name="upi_pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="new-password" required>
+                    </div>
+                    <div class="field">
+                        <label for="confirm_upi_pin">Confirm UPI PIN</label>
+                        <input type="password" id="confirm_upi_pin" name="confirm_upi_pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="new-password" required>
+                    </div>
+                </div>
+                <p class="subtitle">You'll enter this PIN to approve payment requests and app permissions. Apps never see it.</p>
+
                 <button type="submit" class="btn-primary">CREATE UPI ID</button>
             </form>
 

@@ -16,14 +16,11 @@ function formatBalance(cents, currency) {
 
 async function loadAccountContext() {
     try {
-        const response = await fetch(`/accounts/${encodeURIComponent(accountId)}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-            showMessage(data.detail || "Account not found.", "error");
+        const { ok, data } = await api(`/accounts/${encodeURIComponent(accountId)}`);
+        if (!ok) {
+            showMessage(errorMessage(data, "Account not found."), "error");
             return;
         }
-
         document.getElementById("account-context").textContent =
             `${data.account_name} (${data.account_number}) · Current Balance: ${formatBalance(data.balance_cents, data.currency)}`;
     } catch (err) {
@@ -31,11 +28,18 @@ async function loadAccountContext() {
     }
 }
 
+function describe(t) {
+    const parts = [t.tran_type];
+    if (t.counterparty_upi_id) parts.push(t.posting_type === "Debit" ? `to ${t.counterparty_upi_id}` : `from ${t.counterparty_upi_id}`);
+    if (t.narration) parts.push(`· ${t.narration}`);
+    return parts.join(" ");
+}
+
 function renderStatement(transactions) {
     const tbody = document.getElementById("statement-rows");
 
     if (transactions.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">No transactions yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">No transactions yet.</td></tr>`;
         return;
     }
 
@@ -43,10 +47,11 @@ function renderStatement(transactions) {
         .map(
             (t) => `
             <tr>
-                <td>${t.tran_date}</td>
-                <td>${t.tran_type}</td>
-                <td>${t.posting_type}</td>
-                <td class="amount-col">${(t.amount / 100).toFixed(2)}</td>
+                <td>${escapeHtml(t.tran_date)}</td>
+                <td>${escapeHtml(describe(t))}</td>
+                <td>${escapeHtml(t.posting_type)}</td>
+                <td class="amount-col">${(t.amount_cents / 100).toFixed(2)}</td>
+                <td class="amount-col">${t.balance_after_cents == null ? "" : (t.balance_after_cents / 100).toFixed(2)}</td>
             </tr>
         `
         )
@@ -60,14 +65,11 @@ async function loadStatement() {
     }
 
     try {
-        const response = await fetch(`/transactions?account_id=${encodeURIComponent(accountId)}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-            showMessage(data.detail || "Could not load statement.", "error");
+        const { ok, data } = await api(`/transactions?account_id=${encodeURIComponent(accountId)}`);
+        if (!ok) {
+            showMessage(errorMessage(data, "Could not load statement."), "error");
             return;
         }
-
         renderStatement(data);
     } catch (err) {
         showMessage("Unable to reach the server. Please try again.", "error");

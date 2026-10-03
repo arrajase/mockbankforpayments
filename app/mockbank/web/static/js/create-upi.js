@@ -9,27 +9,15 @@ function showMessage(text, type) {
 
 async function init() {
     try {
-        const upiResponse = await fetch(`/upi?customer_id=${encodeURIComponent(customer.customer_id)}`);
-        if (upiResponse.ok) {
-            window.location.href = "/edit-upi";
-            return;
-        }
-    } catch (err) {
-        // no UPI yet, continue
-    }
-
-    try {
-        const response = await fetch(`/accounts?customer_id=${encodeURIComponent(customer.customer_id)}`);
-        const accounts = await response.json();
-
-        if (!response.ok || accounts.length === 0) {
+        const { ok, data: accounts } = await api("/accounts");
+        if (!ok || accounts.length === 0) {
             showMessage("You need at least one account before creating a UPI ID.", "error");
             form.querySelector("button[type=submit]").disabled = true;
             return;
         }
 
         accountSelect.innerHTML = accounts
-            .map((a) => `<option value="${a.account_id}">${a.account_name} (${a.account_number})</option>`)
+            .map((a) => `<option value="${escapeHtml(a.account_id)}">${escapeHtml(a.account_name)} (${escapeHtml(a.account_number)}, ${escapeHtml(a.currency)})</option>`)
             .join("");
     } catch (err) {
         showMessage("Unable to reach the server. Please try again.", "error");
@@ -40,23 +28,22 @@ form.addEventListener("submit", async (event) => {
     event.preventDefault();
     messageBox.className = "message";
 
+    const pin = document.getElementById("upi_pin").value;
+    if (pin !== document.getElementById("confirm_upi_pin").value) {
+        showMessage("UPI PIN and Confirm UPI PIN do not match.", "error");
+        return;
+    }
+
     const payload = {
-        customer_id: customer.customer_id,
         handle: document.getElementById("handle").value.trim(),
         account_id: accountSelect.value,
+        upi_pin: pin,
     };
 
     try {
-        const response = await fetch("/upi", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-            const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join(", ") : data.detail;
-            showMessage(detail || "Could not create UPI ID", "error");
+        const { ok, data } = await api("/upi", { method: "POST", body: payload });
+        if (!ok) {
+            showMessage(errorMessage(data, "Could not create UPI ID"), "error");
             return;
         }
 

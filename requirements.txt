@@ -6,3 +6,4 @@ sqlalchemy
 psycopg[binary]
 python-dotenv
 bcrypt
+alembic

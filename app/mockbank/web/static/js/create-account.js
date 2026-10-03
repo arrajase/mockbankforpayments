@@ -17,22 +17,15 @@ form.addEventListener("submit", async (event) => {
 
     const accountType = document.querySelector('input[name="account_type"]:checked').value;
     const payload = {
-        customer_id: customer.customer_id,
         account_type: accountType,
         account_name: document.getElementById("account_name").value.trim(),
         currency: document.getElementById("currency").value,
     };
 
     try {
-        const response = await fetch("/accounts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-            showMessage(data.detail || "Could not create account", "error");
+        const { ok, data } = await api("/accounts", { method: "POST", body: payload });
+        if (!ok) {
+            showMessage(errorMessage(data, "Could not create account"), "error");
             return;
         }
 

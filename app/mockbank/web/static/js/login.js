@@ -24,11 +24,12 @@ form.addEventListener("submit", async (event) => {
         const data = await response.json();
 
         if (!response.ok) {
-            showMessage(data.detail || "Login failed", "error");
+            showMessage((data.error && data.error.message) || "Login failed", "error");
             return;
         }
 
-        sessionStorage.setItem("mockbank_customer", JSON.stringify(data));
+        // The server set the session cookie; keep only the display name here.
+        sessionStorage.setItem("mockbank_customer", JSON.stringify({ first_name: data.first_name, last_name: data.last_name }));
         window.location.href = "/profile";
     } catch (err) {
         showMessage("Unable to reach the server. Please try again.", "error");

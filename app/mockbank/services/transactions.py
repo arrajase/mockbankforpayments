@@ -1,82 +1,64 @@
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.mockbank.db.models import AccountModel, GenLedgerModel, TransactionHistoryModel, TranTypeModel
-from app.mockbank.models.schemas import PostingType, Transaction, TranType, TransactionCreate
-from app.mockbank.utils.common import new_id
-
-GL_NAME_BY_TRAN_TYPE = {
-    TranType.ATM_DEPOSIT: "Liability",
-    TranType.ATM_WITHDRAWAL: "Liability",
-    TranType.ATM_FEES: "Income",
-    TranType.POS_PURCHASE: "Liability",
-    TranType.CASH_BACK: "Liability",
-    TranType.CREDIT_INTEREST: "Liability",
-}
+from app.mockbank.db.models import ApiClientModel, CustomerModel, TransactionHistoryModel
+from app.mockbank.core.errors import BankError
+from app.mockbank.models.schemas import TransactionCreate
+from app.mockbank.services import ledger
+from app.mockbank.services.accounts import get_own_account
+from app.mockbank.services.records import transaction_record, website_transaction
 
 
-def posting_type_for(db: Session, posting_name: str) -> str:
-    row = db.get(TranTypeModel, posting_name)
-    if row is None:
-        raise HTTPException(status_code=500, detail=f"no TRAN_TYPE entry for '{posting_name}'")
-    return row.POSTING_TYPE
+# ---------- website ----------
 
-
-def _gl_account_for(db: Session, gl_name: str) -> str:
-    row = db.query(GenLedgerModel).filter(GenLedgerModel.GL_NAME == gl_name).first()
-    if row is None:
-        raise HTTPException(status_code=500, detail=f"no GEN_LDGR entry for '{gl_name}'")
-    return row.GL_ACCOUNT
-
-
-def post_transaction(db: Session, payload: TransactionCreate) -> Transaction:
-    account = db.get(AccountModel, payload.account_id)
-    if account is None:
-        raise HTTPException(status_code=404, detail="account not found")
-
-    posting_name = payload.tran_type.value
-    contra_name = f"Contra {posting_name}"
-
-    customer_posting_type = posting_type_for(db, posting_name)
-    contra_posting_type = posting_type_for(db, contra_name)
-    gl_account = _gl_account_for(db, GL_NAME_BY_TRAN_TYPE[payload.tran_type])
-
-    if customer_posting_type == PostingType.DEBIT.value:
-        if account.balance_cents < payload.amount_cents:
-            raise HTTPException(status_code=400, detail="insufficient funds")
-        account.balance_cents -= payload.amount_cents
-    else:
-        account.balance_cents += payload.amount_cents
-
-    customer_leg = TransactionHistoryModel(
-        transaction_id=new_id("txn"),
-        account_id=account.account_id,
-        tran_type=posting_name,
-        posting_type=customer_posting_type,
-        amount=payload.amount_cents,
-        tran_date=payload.tran_date,
-    )
-    gl_leg = TransactionHistoryModel(
-        transaction_id=new_id("txn"),
-        account_id=gl_account,
-        tran_type=contra_name,
-        posting_type=contra_posting_type,
-        amount=payload.amount_cents,
-        tran_date=payload.tran_date,
-    )
-
-    db.add(customer_leg)
-    db.add(gl_leg)
+def post_own_transaction(db: Session, customer: CustomerModel, payload: TransactionCreate) -> dict:
+    """Website test-money form: only against the logged-in customer's own accounts; the bank sets the date."""
+    get_own_account(db, customer, payload.account_id)
+    leg = ledger.post_single(db, account_id=payload.account_id, tran_type=payload.tran_type, amount_cents=payload.amount_cents)
     db.commit()
-    db.refresh(customer_leg)
-    return Transaction.model_validate(customer_leg)
+    return website_transaction(leg)
 
 
-def list_transactions_for_account(db: Session, account_id: str) -> list[Transaction]:
+def list_own_transactions(db: Session, customer: CustomerModel, account_id: str) -> list[dict]:
+    get_own_account(db, customer, account_id)
     rows = (
         db.query(TransactionHistoryModel)
-        .filter(TransactionHistoryModel.account_id == account_id)
-        .order_by(TransactionHistoryModel.tran_date.desc(), TransactionHistoryModel.transaction_id.desc())
+        .filter(TransactionHistoryModel.account_id == account_id, TransactionHistoryModel.status == "SUCCESS")
+        .order_by(TransactionHistoryModel.created_at.desc(), TransactionHistoryModel.transaction_id.desc())
         .all()
     )
-    return [Transaction.model_validate(row) for row in rows]
+    return [website_transaction(row) for row in rows]
+
+
+# ---------- gateway: status lookup ----------
+
+def get_client_transaction(db: Session, client: ApiClientModel, transaction_id: str) -> dict:
+    leg = db.get(TransactionHistoryModel, transaction_id)
+    if leg is None or leg.client_id != client.client_id:
+        raise BankError("TRANSACTION_NOT_FOUND", "transaction not found")
+    return transaction_record(leg, viewer_client_id=client.client_id)
+
+
+def find_by_client_reference(db: Session, client: ApiClientModel, client_reference: str) -> dict:
+    leg = (
+        db.query(TransactionHistoryModel)
+        .filter(
+            TransactionHistoryModel.client_id == client.client_id,
+            TransactionHistoryModel.client_reference == client_reference,
+        )
+        .one_or_none()
+    )
+    if leg is None:
+        raise BankError("TRANSACTION_NOT_FOUND", "no transaction with this client_reference")
+    return transaction_record(leg, viewer_client_id=client.client_id)
+
+
+def reference_in_use(db: Session, client_id: str, client_reference: str) -> bool:
+    return (
+        db.query(TransactionHistoryModel.transaction_id)
+        .filter(
+            TransactionHistoryModel.client_id == client_id,
+            TransactionHistoryModel.client_reference == client_reference,
+        )
+        .first()
+        is not None
+    )

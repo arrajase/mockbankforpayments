@@ -35,10 +35,7 @@ form.addEventListener("submit", async (event) => {
         const data = await response.json();
 
         if (!response.ok) {
-            const detail = Array.isArray(data.detail)
-                ? data.detail.map((d) => d.msg).join(", ")
-                : data.detail;
-            showMessage(detail || "Signup failed", "error");
+            showMessage((data.error && data.error.message) || "Signup failed", "error");
             return;
         }
 

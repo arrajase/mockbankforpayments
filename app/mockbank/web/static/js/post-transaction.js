@@ -4,9 +4,6 @@ document.getElementById("post-transaction-link").href = accountId ? `/post-trans
 document.getElementById("account-statement-link").href = accountId ? `/account-statement?id=${encodeURIComponent(accountId)}` : "#";
 document.getElementById("back-to-account-link").href = accountId ? `/account?id=${encodeURIComponent(accountId)}` : "/profile";
 
-const todayIso = new Date().toISOString().slice(0, 10);
-document.getElementById("tran_date").value = todayIso;
-
 const messageBox = document.getElementById("message");
 
 function showMessage(text, type) {
@@ -25,14 +22,11 @@ async function loadAccountContext() {
     }
 
     try {
-        const response = await fetch(`/accounts/${encodeURIComponent(accountId)}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-            showMessage(data.detail || "Account not found.", "error");
+        const { ok, data } = await api(`/accounts/${encodeURIComponent(accountId)}`);
+        if (!ok) {
+            showMessage(errorMessage(data, "Account not found."), "error");
             return;
         }
-
         document.getElementById("account-context").textContent =
             `${data.account_name} (${data.account_number}) · Current Balance: ${formatBalance(data.balance_cents, data.currency)}`;
     } catch (err) {
@@ -50,25 +44,18 @@ form.addEventListener("submit", async (event) => {
         return;
     }
 
-    const dollars = parseFloat(document.getElementById("amount").value || "0");
+    // The bank stamps the date and time; the form only sends what and how much.
+    const amount = parseFloat(document.getElementById("amount").value || "0");
     const payload = {
         account_id: accountId,
         tran_type: document.getElementById("tran_type").value,
-        amount_cents: Math.round(dollars * 100),
-        tran_date: document.getElementById("tran_date").value,
+        amount_cents: Math.round(amount * 100),
     };
 
     try {
-        const response = await fetch("/transactions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-            const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join(", ") : data.detail;
-            showMessage(detail || "Could not post transaction", "error");
+        const { ok, data } = await api("/transactions", { method: "POST", body: payload });
+        if (!ok) {
+            showMessage(errorMessage(data, "Could not post transaction"), "error");
             return;
         }
 

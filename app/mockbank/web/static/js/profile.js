@@ -6,17 +6,6 @@ document.getElementById("create-upi-btn").addEventListener("click", () => {
     window.location.href = "/create-upi";
 });
 
-async function checkUpiStatus() {
-    try {
-        const response = await fetch(`/upi?customer_id=${encodeURIComponent(customer.customer_id)}`);
-        if (response.status === 404) {
-            document.getElementById("create-upi-btn").hidden = false;
-        }
-    } catch (err) {
-        // leave button hidden if unreachable
-    }
-}
-
 function formatBalance(cents, currency) {
     return `${currency} ${(cents / 100).toFixed(2)}`;
 }
@@ -37,8 +26,8 @@ function renderAccounts(containerId, accounts) {
         const tile = document.createElement("div");
         tile.className = "account-tile";
         tile.innerHTML = `
-            <div class="tile-number">${account.account_number}</div>
-            <div class="tile-balance">${formatBalance(account.balance_cents, account.currency)}</div>
+            <div class="tile-number">${escapeHtml(account.account_number)}</div>
+            <div class="tile-balance">${escapeHtml(formatBalance(account.balance_cents, account.currency))}</div>
         `;
         tile.addEventListener("click", () => {
             window.location.href = `/account?id=${encodeURIComponent(account.account_id)}`;
@@ -49,10 +38,8 @@ function renderAccounts(containerId, accounts) {
 
 async function loadAccounts() {
     try {
-        const response = await fetch(`/accounts?customer_id=${encodeURIComponent(customer.customer_id)}`);
-        const accounts = await response.json();
-
-        if (!response.ok) {
+        const { ok, data: accounts } = await api("/accounts");
+        if (!ok) {
             renderAccounts("checking-list", []);
             renderAccounts("savings-list", []);
             return;
@@ -68,5 +55,4 @@ async function loadAccounts() {
 
 if (customer) {
     loadAccounts();
-    checkUpiStatus();
 }

@@ -1,75 +1,76 @@
+import asyncio
+import contextlib
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.mockbank.api.routes import accounts, customers, transactions, upi, upi_gateway, webhooks
-from app.mockbank.db.database import Base, engine
-from app.mockbank.db import models  # noqa: F401  (ensures models are registered before create_all)
+from app.mockbank.api.routes import accounts, collect, consents, events, transactions, upi, upi_gateway, webhooks, website_auth
+from app.mockbank.core.config import WORKER_ENABLED
+from app.mockbank.core.errors import register_error_handlers
 from app.mockbank.db.seed import seed_gen_ledger, seed_tran_type
+from app.mockbank.services import worker
 
-Base.metadata.create_all(bind=engine)
-seed_gen_ledger()
-seed_tran_type()
+# The schema is managed by Alembic: run `alembic upgrade head` before starting the app.
 
-app = FastAPI(title="Mock Bank API")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    seed_gen_ledger()
+    seed_tran_type()
+    task = asyncio.create_task(worker.run_forever()) if WORKER_ENABLED else None
+    yield
+    if task is not None:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(title="Mock Bank API", lifespan=lifespan)
+register_error_handlers(app)
 
 WEB_DIR = Path(__file__).parent / "app" / "mockbank" / "web"
 
-app.include_router(customers.router)
+app.include_router(website_auth.router)
 app.include_router(accounts.router)
 app.include_router(transactions.router)
 app.include_router(upi.router)
 app.include_router(upi_gateway.router)
+app.include_router(collect.gateway_router)
+app.include_router(collect.website_router)
+app.include_router(consents.gateway_router)
+app.include_router(consents.website_router)
+app.include_router(events.router)
 app.include_router(webhooks.router)
 
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 
-
-@app.get("/")
-def login_page():
-    return FileResponse(WEB_DIR / "pages" / "login.html")
-
-
-@app.get("/signup")
-def signup_page():
-    return FileResponse(WEB_DIR / "pages" / "signup.html")
-
-
-@app.get("/profile")
-def profile_page():
-    return FileResponse(WEB_DIR / "pages" / "profile.html")
-
-
-@app.get("/create-account")
-def create_account_page():
-    return FileResponse(WEB_DIR / "pages" / "create-account.html")
+PAGES = {
+    "/": "login.html",
+    "/signup": "signup.html",
+    "/profile": "profile.html",
+    "/create-account": "create-account.html",
+    "/account": "account.html",
+    "/post-transaction": "post-transaction.html",
+    "/account-statement": "account-statement.html",
+    "/create-upi": "create-upi.html",
+    "/edit-upi": "edit-upi.html",
+    "/pending-requests": "pending-requests.html",
+    "/app-permissions": "app-permissions.html",
+}
 
 
-@app.get("/account")
-def account_page():
-    return FileResponse(WEB_DIR / "pages" / "account.html")
+def _page_route(filename: str):
+    def page():
+        return FileResponse(WEB_DIR / "pages" / filename)
+
+    return page
 
 
-@app.get("/post-transaction")
-def post_transaction_page():
-    return FileResponse(WEB_DIR / "pages" / "post-transaction.html")
-
-
-@app.get("/account-statement")
-def account_statement_page():
-    return FileResponse(WEB_DIR / "pages" / "account-statement.html")
-
-
-@app.get("/create-upi")
-def create_upi_page():
-    return FileResponse(WEB_DIR / "pages" / "create-upi.html")
-
-
-@app.get("/edit-upi")
-def edit_upi_page():
-    return FileResponse(WEB_DIR / "pages" / "edit-upi.html")
+for _path, _filename in PAGES.items():
+    app.add_api_route(_path, _page_route(_filename), methods=["GET"], include_in_schema=False)
 
 
 @app.get("/health")

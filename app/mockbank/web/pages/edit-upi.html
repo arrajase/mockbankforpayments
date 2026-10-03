@@ -45,6 +45,25 @@
                 <button type="submit" class="btn-primary">UPDATE LINKED ACCOUNT</button>
             </form>
 
+            <h2 id="pin-heading" class="form-section-heading">UPI PIN</h2>
+            <form id="pin-form">
+                <div class="field" id="current-pin-field" hidden>
+                    <label for="current_pin">Current UPI PIN</label>
+                    <input type="password" id="current_pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="current-password">
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="new_pin">New UPI PIN (4–6 digits)</label>
+                        <input type="password" id="new_pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="new-password" required>
+                    </div>
+                    <div class="field">
+                        <label for="confirm_new_pin">Confirm UPI PIN</label>
+                        <input type="password" id="confirm_new_pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="new-password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-secondary">SAVE UPI PIN</button>
+            </form>
+
             <a href="/profile" class="back-link">Back to My Accounts</a>
         </div>
     </div>
