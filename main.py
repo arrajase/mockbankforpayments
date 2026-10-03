@@ -42,6 +42,7 @@ app.include_router(collect.gateway_router)
 app.include_router(collect.website_router)
 app.include_router(consents.gateway_router)
 app.include_router(consents.website_router)
+app.include_router(consents.app_access_router)
 app.include_router(events.router)
 app.include_router(webhooks.router)
 

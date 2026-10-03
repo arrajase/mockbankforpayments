@@ -220,3 +220,69 @@ def test_own_statement_paginates_with_cursor(setup):
 def test_bad_cursor(setup, bad):
     r = setup.app.get(f"/upi/{setup.escrow.upi_id}/statement", cursor=bad)
     assert r.status_code == 422
+
+
+# ---------- profile page app-access toggles ----------
+
+def _toggle(customer, app, purpose, enabled, pin=None):
+    body = {"client_id": app.client_id, "upi_id": customer.upi_id, "purpose": purpose, "enabled": enabled}
+    if pin:
+        body["upi_pin"] = pin
+    return customer.web.put("/me/app-access", json=body)
+
+
+def test_toggle_gives_60_day_access_without_consent_id(setup):
+    rows = setup.ravi.web.get("/me/app-access").json()
+    assert [(r["client_id"], r["upi_id"]) for r in rows] == [(setup.app.client_id, setup.ravi.upi_id)]
+    assert not any(p["enabled"] for p in rows[0]["purposes"].values())
+
+    r = _toggle(setup.ravi, setup.app, "BALANCE", True, pin="2468")
+    assert r.status_code == 200, r.text
+    until = datetime.fromisoformat(r.json()["purposes"]["BALANCE"]["expires_at"].replace("Z", "+00:00"))
+    assert timedelta(days=59) < until - datetime.now(timezone.utc) <= timedelta(days=60)
+
+    # no consent_id needed: the bank finds the active consent
+    balance = setup.app.get(f"/upi/{setup.ravi.upi_id}/balance")
+    assert balance.status_code == 200 and balance.json()["balance_cents"] == 50_000
+    assert setup.app.get(f"/upi/{setup.ravi.upi_id}/statement").status_code == 403  # not switched on
+
+    active = setup.app.get("/consents", upi_id=setup.ravi.upi_id, status="ACTIVE").json()
+    assert [c["purposes"] for c in active] == [["BALANCE"]]
+    assert [e["type"] for e in setup.app.get("/events").json()["items"]] == ["consent.updated"]
+
+    r = _toggle(setup.ravi, setup.app, "BALANCE", False)
+    assert r.json()["purposes"]["BALANCE"]["enabled"] is False
+    assert setup.app.get(f"/upi/{setup.ravi.upi_id}/balance").status_code == 403
+
+
+def test_statement_toggle_covers_the_past_year(setup):
+    _toggle(setup.ravi, setup.app, "STATEMENT", True, pin="2468")
+    r = setup.app.get(f"/upi/{setup.ravi.upi_id}/statement")
+    assert r.status_code == 200
+    assert [i["tran_type"] for i in r.json()["items"]] == ["ATM Deposit"]
+    old = str((datetime.now(timezone.utc) - timedelta(days=400)).date())
+    assert setup.app.get(f"/upi/{setup.ravi.upi_id}/statement", **{"from": old}).status_code == 403
+
+
+def test_toggle_on_needs_the_right_pin(setup):
+    assert _toggle(setup.ravi, setup.app, "BALANCE", True).json()["error"]["code"] == "PIN_INVALID"
+    assert _toggle(setup.ravi, setup.app, "BALANCE", True, pin="0000").json()["error"]["code"] == "PIN_INVALID"
+    assert setup.app.get(f"/upi/{setup.ravi.upi_id}/balance").status_code == 403
+
+
+def test_toggle_off_keeps_other_purposes_of_an_app_requested_consent(setup):
+    consent = _consent(setup, ["BALANCE", "LINK"]).json()
+    setup.ravi.web.post(f"/me/consents/{consent['consent_id']}/approve", json={"upi_pin": "2468"})
+
+    _toggle(setup.ravi, setup.app, "BALANCE", False)
+    assert setup.app.get(f"/upi/{setup.ravi.upi_id}/balance").status_code == 403
+    after = setup.app.get(f"/consents/{consent['consent_id']}").json()
+    assert after["status"] == "ACTIVE" and after["purposes"] == ["LINK"]
+
+
+def test_cannot_toggle_someone_elses_upi_or_own_app(bank, setup):
+    mallory = bank.customer("Mallory", handle=f"mal{uuid.uuid4().hex[:6]}")
+    body = {"client_id": setup.app.client_id, "upi_id": setup.ravi.upi_id, "purpose": "BALANCE", "enabled": False}
+    assert mallory.web.put("/me/app-access", json=body).status_code == 404
+    # the app's owner doesn't need (or see) toggles for its own app
+    assert setup.escrow.web.get("/me/app-access").json() == []

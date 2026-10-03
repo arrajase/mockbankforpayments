@@ -290,6 +290,26 @@ class ConsentOut(BaseModel):
     expires_at: str
 
 
+class PurposeAccess(BaseModel):
+    enabled: bool
+    expires_at: str | None
+
+
+class AppAccess(BaseModel):
+    client_id: str
+    client_name: str
+    upi_id: str
+    purposes: dict[str, PurposeAccess]
+
+
+class AppAccessUpdate(BaseModel):
+    client_id: str
+    upi_id: str
+    purpose: ConsentPurpose
+    enabled: bool
+    upi_pin: str | None = None
+
+
 class EventOut(BaseModel):
     event_id: str
     type: str

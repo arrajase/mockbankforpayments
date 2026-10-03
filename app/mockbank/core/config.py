@@ -32,3 +32,5 @@ WORKER_INTERVAL_SECONDS = float(os.getenv("WORKER_INTERVAL_SECONDS", "5"))
 
 VERIFY_RATE_LIMIT_PER_MINUTE = int(os.getenv("VERIFY_RATE_LIMIT_PER_MINUTE", "10"))
 IDEMPOTENCY_RETENTION_DAYS = 7
+# How long a consent switched on from the profile page lasts.
+CONSENT_TOGGLE_DAYS = int(os.getenv("CONSENT_TOGGLE_DAYS", "60"))

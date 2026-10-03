@@ -81,6 +81,12 @@ header matching the bank's own site (`ALLOWED_ORIGINS`).
   IDs, to approve with the UPI PIN or decline.
 - **App Permissions** lists consents, to allow with the UPI PIN, deny, or
   revoke later.
+- **App Access** on the profile page has a switch per app and UPI ID for
+  Confirm UPI ID (`LINK`), Balance and Statement. Switching one on asks for the
+  UPI PIN once and creates an ACTIVE consent for 60 days
+  (`CONSENT_TOGGLE_DAYS`); a Statement switch covers the past year. Switching
+  off removes that access straight away. This is the quickest way to prepare a
+  demo: switch access on once, then the app reads without any bank login.
 
 ## Integrating a payments app: the gateway
 
@@ -97,7 +103,7 @@ x-api-key: mbk_<prefix>_<secret>
 |---|---|
 | `pay`, `transactions` (move money out) | the UPI ID belongs to the client's owner customer |
 | Take money from a customer | only via a collect request the customer approves with their UPI PIN |
-| `balance`, `statement` | the UPI ID is the client's own, **or** `consent_id` names an ACTIVE consent covering that purpose (and, for statements, the date range) |
+| `balance`, `statement` | the UPI ID is the client's own, **or** the client holds an ACTIVE consent for that UPI ID covering the purpose (and, for statements, the date range). `consent_id` is optional: without it the bank uses any matching active consent |
 | `verify` | any UPI ID, at most 10 calls per minute per client |
 | Transaction, collect and consent lookups, `/events` | only the client's own |
 
@@ -303,8 +309,11 @@ it on the **App Permissions** page with their UPI PIN, which makes it
 `EXPIRED`. An ACTIVE `LINK` consent is the bank's confirmation that the
 customer owns the UPI ID.
 
-`GET /consents/{consent_id}` returns the current state. Changes produce
-`consent.updated` events.
+`GET /consents/{consent_id}` returns the current state, and
+`GET /consents?upi_id=…&status=ACTIVE` lists the client's consents. Changes
+produce `consent.updated` events. That includes consents the customer
+switches on or off themselves on the profile page's App Access section, which
+the app never requested.
 
 ### Webhooks and events
 

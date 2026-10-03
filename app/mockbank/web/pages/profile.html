@@ -48,6 +48,17 @@
                 <h2>Savings Accounts</h2>
                 <div id="savings-list" class="account-list"></div>
             </div>
+
+            <div class="section" id="app-access-section" hidden>
+                <h2>App Access</h2>
+                <p class="section-note">Let apps use your UPI ID. Turning access on asks for your UPI PIN; it lasts until the date shown, and you can turn it off any time.</p>
+                <div id="app-access-message" class="message"></div>
+                <div class="field app-access-pin">
+                    <label for="app-access-pin">UPI PIN</label>
+                    <input type="password" id="app-access-pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="off" placeholder="Needed to turn access on">
+                </div>
+                <div id="app-access-list" class="request-list"></div>
+            </div>
         </div>
     </div>
 </div>
