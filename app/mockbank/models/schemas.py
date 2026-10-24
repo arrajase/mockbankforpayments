@@ -310,6 +310,59 @@ class AppAccessUpdate(BaseModel):
     upi_pin: str | None = None
 
 
+_APP_NAME = r"^[A-Za-z0-9][A-Za-z0-9 _.-]{2,49}$"
+
+
+def _check_webhook_url(value: str | None) -> str | None:
+    if value is None or value == "":
+        return None
+    if not re.fullmatch(r"https?://[^\s/$.?#][^\s]{2,499}", value):
+        raise ValueError("webhook_url must be an http(s) URL")
+    return value
+
+
+class ApiClientCreate(BaseModel):
+    name: str = Field(pattern=_APP_NAME)
+    webhook_url: str | None = None
+
+    @field_validator("webhook_url")
+    @classmethod
+    def webhook_url_format(cls, value):
+        return _check_webhook_url(value)
+
+
+class ApiClientUpdate(BaseModel):
+    webhook_url: str | None = None
+    active: bool | None = None
+
+    @field_validator("webhook_url")
+    @classmethod
+    def webhook_url_format(cls, value):
+        return _check_webhook_url(value)
+
+
+class ApiClientOut(BaseModel):
+    client_id: str
+    name: str
+    key_hint: str
+    active: bool
+    webhook_url: str | None
+    created_at: str
+
+
+class ApiClientCreated(ApiClientOut):
+    api_key: str
+    webhook_secret: str
+
+
+class ApiKeyRotated(ApiClientOut):
+    api_key: str
+
+
+class WebhookSecret(BaseModel):
+    webhook_secret: str
+
+
 class EventOut(BaseModel):
     event_id: str
     type: str

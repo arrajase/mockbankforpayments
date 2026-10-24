@@ -701,3 +701,44 @@ body {
     color: var(--muted);
     font-size: 0.78rem;
 }
+
+/* Developer page */
+.new-key {
+    border-color: var(--accent);
+    background: #fff8f0;
+    margin-bottom: 20px;
+}
+
+.secret-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.secret-row .detail-label {
+    min-width: 120px;
+}
+
+.secret-row code,
+.request-meta code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.85rem;
+    background: #eef2f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+.secret-row .copy-btn,
+.new-key .btn-inline {
+    width: auto;
+    padding: 6px 14px;
+}
+
+.request-actions .webhook-input {
+    flex: 1;
+    min-width: 200px;
+    width: auto;
+}

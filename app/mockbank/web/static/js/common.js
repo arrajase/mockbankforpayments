@@ -51,7 +51,7 @@ if (logoutBtn) {
 // Links every signed-in page shares.
 const sidebarNav = document.querySelector(".sidebar nav");
 if (sidebarNav) {
-    [["/pending-requests", "Pending Requests"], ["/app-permissions", "App Permissions"]].forEach(([href, label]) => {
+    [["/pending-requests", "Pending Requests"], ["/app-permissions", "App Permissions"], ["/developer", "Developer"]].forEach(([href, label]) => {
         if (!sidebarNav.querySelector(`a[href="${href}"]`)) {
             const link = document.createElement("a");
             link.href = href;

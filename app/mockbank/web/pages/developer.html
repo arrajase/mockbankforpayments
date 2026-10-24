@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MockBank | Developer</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="navbar">
+    <div class="logo">Mock<span>Bank</span></div>
+    <div class="nav-right">
+        <span id="greeting"></span>
+        <button id="logout-btn" class="link-btn">Logout</button>
+    </div>
+</div>
+
+<div class="customer-section">
+    <div class="customer-card">
+        <h2 id="customer-section-heading"></h2>
+        <div id="customer-details" class="customer-detail-grid"></div>
+    </div>
+</div>
+
+<div class="app-shell">
+    <div class="sidebar">
+        <nav>
+            <a href="/profile">Customer Profile</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="statement-card">
+            <h1>Developer</h1>
+            <p class="subtitle">API keys for apps that use your UPI IDs, such as a payments app's escrow account</p>
+
+            <div id="message" class="message"></div>
+
+            <div id="new-key" class="request-card new-key" hidden>
+                <div class="request-title">Copy these now</div>
+                <div class="request-meta">The API key is shown only once. MockBank keeps only a hash of it.</div>
+                <div class="secret-row"><span class="detail-label">API key</span><code id="new-api-key"></code><button type="button" class="btn-secondary copy-btn" data-copy="new-api-key">COPY</button></div>
+                <div class="secret-row" id="new-secret-row"><span class="detail-label">Webhook secret</span><code id="new-webhook-secret"></code><button type="button" class="btn-secondary copy-btn" data-copy="new-webhook-secret">COPY</button></div>
+                <button type="button" id="dismiss-new-key" class="btn-secondary btn-inline">I'VE SAVED IT</button>
+            </div>
+
+            <h2 class="form-section-heading">Register an app</h2>
+            <form id="create-client-form">
+                <div class="field-row">
+                    <div class="field">
+                        <label for="client-name">App name</label>
+                        <input type="text" id="client-name" pattern="[A-Za-z0-9][A-Za-z0-9 _.\-]{2,49}" placeholder="paymentsapp-dev" required>
+                    </div>
+                    <div class="field">
+                        <label for="client-webhook">Webhook URL (optional)</label>
+                        <input type="url" id="client-webhook" placeholder="https://yourapp.example/webhooks/mockbank">
+                    </div>
+                </div>
+                <p class="section-note">The key can pay from and read your own UPI IDs only. To take money from or read other customers' accounts, the app needs their approval.</p>
+                <button type="submit" class="btn-primary">CREATE API KEY</button>
+            </form>
+
+            <h2 class="form-section-heading">Your apps</h2>
+            <div id="client-list" class="request-list"></div>
+
+            <a href="/profile" class="back-link">Back to My Accounts</a>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/developer.js"></script>
+</body>
+</html>

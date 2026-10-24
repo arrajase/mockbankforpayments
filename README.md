@@ -54,18 +54,26 @@ Without `TEST_DATABASE_URL` every test is skipped.
 
 ### Issuing API keys
 
+**Self-service (website):** log in as the business customer (e.g. "PaymentsApp",
+which holds the escrow and operating UPI IDs) and open **Developer**. Register
+an app with a name and an optional webhook URL. The API key and webhook secret
+are shown once; only the key's hash is stored. From the same page you can
+change the webhook URL, show or replace the webhook secret, issue a new API key
+(the old one stops working immediately), and deactivate or reactivate the app.
+
+The customer who registers an app is its owner: its key may pay from and read
+only that customer's UPI IDs. A customer may hold several UPI IDs, each linked
+to one of their accounts and protected by its own UPI PIN, and register up to
+10 apps.
+
+**Admin (command line)**, against whatever `DATABASE_URL` points at:
+
 ```
 python -m app.mockbank.cli create-client --name paymentsapp-dev --owner <customer_id> [--webhook-url URL]
 python -m app.mockbank.cli list-clients
 python -m app.mockbank.cli set-webhook --name paymentsapp-dev --url URL
 python -m app.mockbank.cli deactivate-client --name paymentsapp-dev
 ```
-
-`create-client` prints the API key and webhook secret once; only the key's hash
-is stored. `--owner` is the bank customer whose UPI IDs the client may pay
-from (e.g. the "PaymentsApp" business customer that holds the escrow and
-operating UPI IDs). A customer may hold several UPI IDs, each linked to one of
-their accounts and protected by its own UPI PIN.
 
 ## The website
 
@@ -81,6 +89,8 @@ header matching the bank's own site (`ALLOWED_ORIGINS`).
   IDs, to approve with the UPI PIN or decline.
 - **App Permissions** lists consents, to allow with the UPI PIN, deny, or
   revoke later.
+- **Developer** lets a customer register apps and manage their API keys and
+  webhooks (see *Issuing API keys* above).
 - **App Access** on the profile page has a switch per app and UPI ID for
   Confirm UPI ID (`LINK`), Balance and Statement. Switching one on asks for the
   UPI PIN once and creates an ACTIVE consent for 60 days

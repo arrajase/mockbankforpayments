@@ -7,7 +7,18 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.mockbank.api.routes import accounts, collect, consents, events, transactions, upi, upi_gateway, webhooks, website_auth
+from app.mockbank.api.routes import (
+    accounts,
+    collect,
+    consents,
+    developer,
+    events,
+    transactions,
+    upi,
+    upi_gateway,
+    webhooks,
+    website_auth,
+)
 from app.mockbank.core.config import WORKER_ENABLED
 from app.mockbank.core.errors import register_error_handlers
 from app.mockbank.db.seed import seed_gen_ledger, seed_tran_type
@@ -43,6 +54,7 @@ app.include_router(collect.website_router)
 app.include_router(consents.gateway_router)
 app.include_router(consents.website_router)
 app.include_router(consents.app_access_router)
+app.include_router(developer.router)
 app.include_router(events.router)
 app.include_router(webhooks.router)
 
@@ -60,6 +72,7 @@ PAGES = {
     "/edit-upi": "edit-upi.html",
     "/pending-requests": "pending-requests.html",
     "/app-permissions": "app-permissions.html",
+    "/developer": "developer.html",
 }
 
 
