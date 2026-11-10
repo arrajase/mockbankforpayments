@@ -379,6 +379,13 @@ body {
     min-height: calc(80vh - 64px);
 }
 
+/* Public pages (Forgot Password) opened while signed out */
+body.signed-out .sidebar,
+body.signed-out .customer-section,
+body.signed-out .nav-right {
+    display: none;
+}
+
 .sidebar {
     width: 220px;
     flex-shrink: 0;

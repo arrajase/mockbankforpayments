@@ -5,7 +5,15 @@ from app.mockbank.api.deps import current_customer, same_origin
 from app.mockbank.core.config import COOKIE_SECURE, SESSION_COOKIE_NAME
 from app.mockbank.db.database import get_db
 from app.mockbank.db.models import CustomerModel
-from app.mockbank.models.schemas import CustomerOut, LoginRequest, LoginResponse, MobileUpdate, PasswordReset, SignupRequest
+from app.mockbank.models.schemas import (
+    CustomerOut,
+    ForgotPasswordRequest,
+    LoginRequest,
+    LoginResponse,
+    MobileUpdate,
+    PasswordReset,
+    SignupRequest,
+)
 from app.mockbank.services import auth as auth_service
 from app.mockbank.services import sessions as sessions_service
 
@@ -30,6 +38,12 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         path="/",
     )
     return LoginResponse.model_validate(customer)
+
+
+@router.post("/auth/forgot-password", status_code=204)
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    auth_service.forgot_password(db, payload)
+    return Response(status_code=204)
 
 
 @router.post("/auth/logout", status_code=204)

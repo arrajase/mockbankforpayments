@@ -1,7 +1,8 @@
 // Authentication is the HttpOnly session cookie; sessionStorage only holds the name shown in the navbar.
 const customer = JSON.parse(sessionStorage.getItem("mockbank_customer") || "null");
 
-if (!customer) {
+// Pages marked <body data-public> also work signed out (e.g. Reset Password doubles as Forgot Password).
+if (!customer && !document.body.hasAttribute("data-public")) {
     window.location.href = "/";
 }
 

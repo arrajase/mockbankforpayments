@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.mockbank.core.errors import BankError
 from app.mockbank.db.models import CustomerModel, SessionModel
-from app.mockbank.models.schemas import LoginRequest, MobileUpdate, PasswordReset, SignupRequest
+from app.mockbank.models.schemas import ForgotPasswordRequest, LoginRequest, MobileUpdate, PasswordReset, SignupRequest
 from app.mockbank.utils.common import new_id, sha256_hex
 
 
@@ -62,14 +62,27 @@ def update_mobile(db: Session, customer: CustomerModel, payload: MobileUpdate) -
     return customer
 
 
-def reset_password(db: Session, customer: CustomerModel, payload: PasswordReset, current_token: str | None) -> None:
-    """Set a new password and sign out every other session; the one making the change stays signed in."""
-    customer.password_hash = _hash_password(payload.new_password)
-    others = db.query(SessionModel).filter(SessionModel.customer_id == customer.customer_id)
-    if current_token:
-        others = others.filter(SessionModel.token_hash != sha256_hex(current_token))
-    others.delete(synchronize_session=False)
+def _set_password(db: Session, customer: CustomerModel, password: str, keep_token: str | None = None) -> None:
+    """Set a new password and sign out every session except `keep_token`'s."""
+    customer.password_hash = _hash_password(password)
+    sessions = db.query(SessionModel).filter(SessionModel.customer_id == customer.customer_id)
+    if keep_token:
+        sessions = sessions.filter(SessionModel.token_hash != sha256_hex(keep_token))
+    sessions.delete(synchronize_session=False)
     db.commit()
+
+
+def reset_password(db: Session, customer: CustomerModel, payload: PasswordReset, current_token: str | None) -> None:
+    """Signed in: the session making the change stays signed in; every other one is signed out."""
+    _set_password(db, customer, payload.new_password, keep_token=current_token)
+
+
+def forgot_password(db: Session, payload: ForgotPasswordRequest) -> None:
+    """Signed out: reset by login ID alone and sign out every session."""
+    customer = db.query(CustomerModel).filter(CustomerModel.login_id == payload.login_id).first()
+    if customer is None:
+        raise BankError("NOT_FOUND", "login id not found")
+    _set_password(db, customer, payload.new_password)
 
 
 def login(db: Session, payload: LoginRequest) -> CustomerModel:

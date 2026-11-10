@@ -78,6 +78,12 @@ class PasswordReset(BaseModel):
         return self
 
 
+class ForgotPasswordRequest(PasswordReset):
+    """Logged out: the login ID is the only thing asked for, by design of this mock bank."""
+
+    login_id: str = Field(min_length=1)
+
+
 class MobileUpdate(BaseModel):
     mobile_number: str
 

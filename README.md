@@ -94,6 +94,12 @@ header matching the bank's own site (`ALLOWED_ORIGINS`).
 - **Reset Password** sets a new password (`PUT /me/password` with
   `new_password` and `confirm_password`) for the signed-in customer. The
   session making the change stays signed in; every other session is signed out.
+  The same page is **Forgot Password** when opened signed out (linked from the
+  login page): it also asks for the Login ID (`POST /auth/forgot-password` with
+  `login_id`, `new_password`, `confirm_password`) and signs out every session.
+  There is deliberately no other identity check, so anyone who knows a login
+  ID can reset that customer's password; don't keep anything that matters in
+  this mock bank.
 - **Post Transaction** ("ATM Deposit" etc.) creates test money, only in the
   customer's own accounts. The bank stamps the date and time.
 - **Pending Requests** lists collect requests addressed to the customer's UPI
