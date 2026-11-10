@@ -11,6 +11,8 @@ from app.mockbank.models.schemas import (
     UPI_SUFFIX,
     ConsentPurpose,
     UpiCreate,
+    UpiLookupByMobile,
+    UpiMobileLink,
     UpiPaymentCreate,
     UpiPinSet,
     UpiTransactionCreate,
@@ -34,6 +36,7 @@ def _upi_out(upi: UpiModel) -> dict:
         "account_id": upi.account_id,
         "status": upi.status,
         "pin_set": upi.pin_hash is not None,
+        "mobile_linked": upi.mobile_linked,
     }
 
 
@@ -102,17 +105,52 @@ def set_upi_pin(db: Session, customer: CustomerModel, upi_id: str, payload: UpiP
     return _upi_out(upi)
 
 
+def set_mobile_link(db: Session, customer: CustomerModel, upi_id: str, payload: UpiMobileLink) -> dict:
+    """Link (or unlink) the customer's mobile number to this UPI ID. Linking moves the link off any other of their UPI IDs."""
+    upi = _own_upi(db, customer, upi_id)
+    if payload.linked:
+        if not customer.mobile_number:
+            raise BankError("VALIDATION_ERROR", "add a mobile number on your profile before linking it to a UPI ID")
+        # Unlink the others first, in its own statement, so the one-link-per-customer index never sees two.
+        db.query(UpiModel).filter(
+            UpiModel.customer_id == customer.customer_id, UpiModel.upi_id != upi.upi_id, UpiModel.mobile_linked.is_(True)
+        ).update({UpiModel.mobile_linked: False}, synchronize_session="fetch")
+    upi.mobile_linked = payload.linked
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise BankError("CONFLICT", "another UPI ID was linked to this mobile number at the same time; try again")
+    return _upi_out(upi)
+
+
 # ---------- gateway (API client) ----------
 
-def verify_upi(db: Session, upi_id: str) -> dict:
-    upi = resolve_upi(db, upi_id)
-    account = db.get(AccountModel, upi.account_id)
+def _verify_out(upi: UpiModel, account: AccountModel) -> dict:
     return {
         "upi_id": upi.upi_id,
         "account_holder_name": account.owner_name,
         "currency": account.currency,
         "status": upi.status,
     }
+
+
+def verify_upi(db: Session, upi_id: str) -> dict:
+    upi = resolve_upi(db, upi_id)
+    return _verify_out(upi, db.get(AccountModel, upi.account_id))
+
+
+def lookup_upi_by_mobile(db: Session, payload: UpiLookupByMobile) -> dict:
+    """The UPI ID a customer has linked to their mobile number; a number with no linked UPI ID is a validation error."""
+    upi = (
+        db.query(UpiModel)
+        .join(CustomerModel, CustomerModel.customer_id == UpiModel.customer_id)
+        .filter(CustomerModel.mobile_number == payload.mobile_number, UpiModel.mobile_linked.is_(True))
+        .first()
+    )
+    if upi is None:
+        raise BankError("VALIDATION_ERROR", "mobile number is not linked to any UPI ID")
+    return _verify_out(upi, db.get(AccountModel, upi.account_id))
 
 
 def get_balance(db: Session, client: ApiClientModel, upi_id: str, consent_id: str | None) -> dict:

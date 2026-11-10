@@ -70,9 +70,11 @@ function renderCustomerDetails(details, upis) {
     const rows = [
         ["First Name", escapeHtml(details.first_name)],
         ["Last Name", escapeHtml(details.last_name)],
+        ["Mobile Number", details.mobile_number ? escapeHtml(details.mobile_number) : `<a href="/profile#mobile-section">Add mobile number</a>`],
     ];
     upis.forEach((upi) => {
-        rows.push(["UPI ID", `<a href="/edit-upi?upi=${encodeURIComponent(upi.upi_id)}">${escapeHtml(upi.upi_id)}</a>`]);
+        const linked = upi.mobile_linked ? ` <span class="badge">linked to mobile</span>` : "";
+        rows.push(["UPI ID", `<a href="/edit-upi?upi=${encodeURIComponent(upi.upi_id)}">${escapeHtml(upi.upi_id)}</a>${linked}`]);
     });
 
     container.innerHTML = rows

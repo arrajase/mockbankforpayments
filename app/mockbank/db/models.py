@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +28,8 @@ class CustomerModel(Base):
     last_name: Mapped[str] = mapped_column(String)
     login_id: Mapped[str] = mapped_column(String, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String)
+    # 10 digits, no country code. Required at signup; customers from before that may not have one yet.
+    mobile_number: Mapped[str | None] = mapped_column(String, unique=True, index=True, nullable=True)
 
 
 class AccountModel(Base):
@@ -59,6 +62,16 @@ class TranTypeModel(Base):
 
 class UpiModel(Base):
     __tablename__ = "upi_ids"
+    __table_args__ = (
+        # At most one UPI ID per customer answers for their mobile number.
+        Index(
+            "ux_upi_ids_mobile_linked",
+            "customer_id",
+            unique=True,
+            postgresql_where=text("mobile_linked"),
+            sqlite_where=text("mobile_linked"),
+        ),
+    )
 
     upi_id: Mapped[str] = mapped_column(String, primary_key=True)
     # A customer may hold several UPI IDs (e.g. a business with escrow + operating IDs).
@@ -68,6 +81,7 @@ class UpiModel(Base):
     pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     pin_locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    mobile_linked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class TransactionHistoryModel(Base):

@@ -5,7 +5,7 @@ from app.mockbank.api.deps import current_customer, same_origin
 from app.mockbank.core.config import COOKIE_SECURE, SESSION_COOKIE_NAME
 from app.mockbank.db.database import get_db
 from app.mockbank.db.models import CustomerModel
-from app.mockbank.models.schemas import CustomerOut, LoginRequest, LoginResponse, SignupRequest
+from app.mockbank.models.schemas import CustomerOut, LoginRequest, LoginResponse, MobileUpdate, SignupRequest
 from app.mockbank.services import auth as auth_service
 from app.mockbank.services import sessions as sessions_service
 
@@ -43,3 +43,8 @@ def logout(request: Request, db: Session = Depends(get_db)):
 @router.get("/me", response_model=CustomerOut)
 def me(customer: CustomerModel = Depends(current_customer)):
     return CustomerOut.model_validate(customer)
+
+
+@router.put("/me/mobile", response_model=CustomerOut)
+def update_mobile(payload: MobileUpdate, customer: CustomerModel = Depends(current_customer), db: Session = Depends(get_db)):
+    return CustomerOut.model_validate(auth_service.update_mobile(db, customer, payload))

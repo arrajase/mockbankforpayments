@@ -53,6 +53,50 @@ async function loadAccounts() {
     }
 }
 
+// ---------- Mobile number ----------
+
+const mobileForm = document.getElementById("mobile-form");
+const mobileInput = document.getElementById("mobile_number");
+
+function showMobileMessage(text, type) {
+    const box = document.getElementById("mobile-message");
+    box.textContent = text;
+    box.className = `message ${type}`;
+}
+
+function renderMobile(mobileNumber) {
+    mobileInput.value = mobileNumber || "";
+    document.getElementById("mobile-note").textContent = mobileNumber
+        ? "Apps can find the UPI ID you link to this number. Changing it moves that link to the new number."
+        : "Add your mobile number. You can then link it to one of your UPI IDs on the Edit UPI ID page.";
+    document.getElementById("mobile-submit").textContent = mobileNumber ? "UPDATE MOBILE NUMBER" : "ADD MOBILE NUMBER";
+}
+
+async function loadMobile() {
+    try {
+        const { ok, data } = await api("/me");
+        if (ok) renderMobile(data.mobile_number);
+    } catch (err) {
+        // leave the form empty if unreachable
+    }
+}
+
+mobileForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+        const { ok, data } = await api("/me/mobile", { method: "PUT", body: { mobile_number: mobileInput.value.trim() } });
+        if (!ok) {
+            showMobileMessage(errorMessage(data, "Could not save mobile number"), "error");
+            return;
+        }
+        renderMobile(data.mobile_number);
+        showMobileMessage("Mobile number saved.", "success");
+        loadCustomerDetails();
+    } catch (err) {
+        showMobileMessage("Unable to reach the server. Please try again.", "error");
+    }
+});
+
 // ---------- App access toggles ----------
 
 const PURPOSES = [
@@ -145,6 +189,7 @@ async function loadAppAccess() {
 }
 
 if (customer) {
+    loadMobile();
     loadAccounts();
     loadAppAccess();
 }

@@ -9,6 +9,23 @@ function showMessage(text, type) {
 }
 
 let currentUpi = null;
+let mobileNumber = null;
+
+const mobileLinkBtn = document.getElementById("mobile-link-btn");
+
+function renderMobileLink() {
+    const note = document.getElementById("mobile-link-note");
+    if (!mobileNumber) {
+        note.innerHTML = `Add a mobile number on <a href="/profile#mobile-section">your profile</a> to link it to this UPI ID.`;
+        mobileLinkBtn.hidden = true;
+        return;
+    }
+    note.textContent = currentUpi.mobile_linked
+        ? `Linked to ${mobileNumber}. Apps that look up this number find this UPI ID.`
+        : `Not linked. Link ${mobileNumber} so apps can find this UPI ID by your mobile number. Any other UPI ID linked to it is unlinked.`;
+    mobileLinkBtn.textContent = currentUpi.mobile_linked ? "UNLINK MOBILE NUMBER" : "LINK MOBILE NUMBER";
+    mobileLinkBtn.hidden = false;
+}
 
 async function init() {
     try {
@@ -28,6 +45,12 @@ async function init() {
         document.getElementById("current-pin-field").hidden = !currentUpi.pin_set;
         if (!currentUpi.pin_set) {
             showMessage("This UPI ID has no UPI PIN yet. Set one to approve requests from apps.", "error");
+        }
+
+        const me = await api("/me");
+        if (me.ok) {
+            mobileNumber = me.data.mobile_number;
+            renderMobileLink();
         }
     } catch (err) {
         showMessage("Unable to reach the server. Please try again.", "error");
@@ -72,6 +95,27 @@ form.addEventListener("submit", async (event) => {
         }, 1200);
     } catch (err) {
         showMessage("Unable to reach the server. Please try again.", "error");
+    }
+});
+
+mobileLinkBtn.addEventListener("click", async () => {
+    messageBox.className = "message";
+    const linked = !currentUpi.mobile_linked;
+    mobileLinkBtn.disabled = true;
+    try {
+        const { ok, data } = await api(`/upi/${encodeURIComponent(currentUpi.upi_id)}/mobile-link`, { method: "PUT", body: { linked } });
+        if (!ok) {
+            showMessage(errorMessage(data, "Could not change the mobile number link"), "error");
+            return;
+        }
+        currentUpi = data;
+        renderMobileLink();
+        showMessage(linked ? "Mobile number linked to this UPI ID" : "Mobile number unlinked", "success");
+        loadCustomerDetails();
+    } catch (err) {
+        showMessage("Unable to reach the server. Please try again.", "error");
+    } finally {
+        mobileLinkBtn.disabled = false;
     }
 });
 

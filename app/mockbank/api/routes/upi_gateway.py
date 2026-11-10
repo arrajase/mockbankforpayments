@@ -13,6 +13,7 @@ from app.mockbank.models.schemas import (
     StatementPage,
     TransactionRecord,
     UpiBalance,
+    UpiLookupByMobile,
     UpiPaymentCreate,
     UpiTransactionCreate,
     UpiVerifyResult,
@@ -31,6 +32,14 @@ def verify(upi_id: str, client: ApiClientModel = Depends(current_client), db: Se
     if not verify_limiter.allow(client.client_id):
         raise BankError("RATE_LIMITED", f"at most {VERIFY_RATE_LIMIT_PER_MINUTE} verify calls per minute")
     return upi_service.verify_upi(db, upi_id)
+
+
+@router.post("/lookup", response_model=UpiVerifyResult)
+def lookup_by_mobile(payload: UpiLookupByMobile, client: ApiClientModel = Depends(current_client), db: Session = Depends(get_db)):
+    """Find the UPI ID linked to a mobile number. The number travels in the body so it stays out of URLs and logs."""
+    if not verify_limiter.allow(client.client_id):
+        raise BankError("RATE_LIMITED", f"at most {VERIFY_RATE_LIMIT_PER_MINUTE} verify and lookup calls per minute")
+    return upi_service.lookup_upi_by_mobile(db, payload)
 
 
 @router.get("/{upi_id}/balance", response_model=UpiBalance)

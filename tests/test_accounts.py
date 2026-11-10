@@ -15,7 +15,8 @@ def test_login_sets_httponly_cookie_and_me_uses_it(bank):
     from main import app
 
     web = TestClient(app, base_url="http://testserver", headers={"Origin": "http://testserver"})
-    web.post("/auth/signup", json={"first_name": "A", "last_name": "B", "login_id": "ab1", "password": "pw", "confirm_password": "pw"})
+    web.post("/auth/signup", json={"first_name": "A", "last_name": "B", "login_id": "ab1", "mobile_number": "9876543210",
+                                "password": "pw", "confirm_password": "pw"})
     r = web.post("/auth/login", json={"login_id": "ab1", "password": "pw"})
     assert r.status_code == 200
     assert "customer_id" not in r.json()

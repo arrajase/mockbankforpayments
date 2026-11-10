@@ -22,6 +22,7 @@ form.addEventListener("submit", async (event) => {
         first_name: document.getElementById("first_name").value.trim(),
         last_name: document.getElementById("last_name").value.trim(),
         login_id: document.getElementById("login_id").value.trim(),
+        mobile_number: document.getElementById("mobile_number").value.trim(),
         password: password,
         confirm_password: confirmPassword,
     };

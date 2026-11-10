@@ -83,6 +83,14 @@ website endpoint takes the customer from the session; another customer's
 account or UPI ID answers `404`. `POST`/`PUT` calls must carry an `Origin`
 header matching the bank's own site (`ALLOWED_ORIGINS`).
 
+- **Mobile number** is required at signup (10 digits; `+91`, a leading `0`,
+  spaces and dashes are accepted and stripped) and unique across customers.
+  Customers who signed up before it was required add one on the profile page
+  (`PUT /me/mobile`), where it can also be changed.
+- **Edit UPI ID** links the customer's mobile number to that UPI ID
+  (`PUT /upi/{upi_id}/mobile-link` with `{"linked": true}`). One UPI ID per
+  customer can be linked; linking another moves the link. Changing the mobile
+  number keeps the link, under the new number.
 - **Post Transaction** ("ATM Deposit" etc.) creates test money, only in the
   customer's own accounts. The bank stamps the date and time.
 - **Pending Requests** lists collect requests addressed to the customer's UPI
@@ -114,7 +122,7 @@ x-api-key: mbk_<prefix>_<secret>
 | `pay`, `transactions` (move money out) | the UPI ID belongs to the client's owner customer |
 | Take money from a customer | only via a collect request the customer approves with their UPI PIN |
 | `balance`, `statement` | the UPI ID is the client's own, **or** the client holds an ACTIVE consent for that UPI ID covering the purpose (and, for statements, the date range). `consent_id` is optional: without it the bank uses any matching active consent |
-| `verify` | any UPI ID, at most 10 calls per minute per client |
+| `verify`, `lookup` | any UPI ID or mobile number, at most 10 calls per minute per client (shared between the two) |
 | Transaction, collect and consent lookups, `/events` | only the client's own |
 
 Anything else returns `403 NOT_PERMITTED` (or `CONSENT_REQUIRED`).
@@ -244,6 +252,29 @@ minute per client.
 
 ```json
 {"upi_id": "someone@okmockbank", "account_holder_name": "Jane Doe", "currency": "INR", "status": "ACTIVE"}
+```
+
+### `POST /upi/lookup`
+
+Finds the UPI ID a customer has linked to their mobile number. The number goes
+in the body, not the URL, so it stays out of access logs. Shares the `verify`
+rate limit.
+
+```json
+{"mobile_number": "9876543210"}
+```
+
+returns the same shape as `verify`:
+
+```json
+{"upi_id": "someone@okmockbank", "account_holder_name": "Jane Doe", "currency": "INR", "status": "ACTIVE"}
+```
+
+A malformed number, or one that is not linked to any UPI ID (whether or not a
+customer has registered it), answers `422 VALIDATION_ERROR`:
+
+```json
+{"error": {"code": "VALIDATION_ERROR", "message": "mobile number is not linked to any UPI ID", "retryable": false}}
 ```
 
 ### `GET /upi/{upi_id}/balance[?consent_id=…]`

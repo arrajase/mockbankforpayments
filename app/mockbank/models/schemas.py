@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 UPI_SUFFIX = "@okmockbank"
 PIN_PATTERN = r"^\d{4,6}$"
+MOBILE_PATTERN = r"^[6-9]\d{9}$"
 
 
 class AccountType(str, Enum):
@@ -22,12 +23,32 @@ class Currency(str, Enum):
 
 # ---------- website: auth ----------
 
+def _check_mobile(value: str) -> str:
+    """Accept 98765 43210, +91-9876543210, 09876543210 and the like; store the bare 10 digits."""
+    digits = re.sub(r"[\s()-]", "", value)
+    if digits.startswith("+91"):
+        digits = digits[3:]
+    elif len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    elif len(digits) == 11 and digits.startswith("0"):
+        digits = digits[1:]
+    if not re.fullmatch(MOBILE_PATTERN, digits):
+        raise ValueError("mobile number must be a 10-digit Indian mobile number starting with 6, 7, 8 or 9")
+    return digits
+
+
 class SignupRequest(BaseModel):
     first_name: str
     last_name: str
     login_id: str
+    mobile_number: str
     password: str
     confirm_password: str
+
+    @field_validator("mobile_number")
+    @classmethod
+    def mobile_format(cls, value: str) -> str:
+        return _check_mobile(value)
 
     @model_validator(mode="after")
     def passwords_must_match(self):
@@ -43,6 +64,16 @@ class CustomerOut(BaseModel):
     first_name: str
     last_name: str
     login_id: str
+    mobile_number: str | None
+
+
+class MobileUpdate(BaseModel):
+    mobile_number: str
+
+    @field_validator("mobile_number")
+    @classmethod
+    def mobile_format(cls, value: str) -> str:
+        return _check_mobile(value)
 
 
 class LoginRequest(BaseModel):
@@ -156,12 +187,17 @@ class UpiPinSet(BaseModel):
         return _check_pin(value)
 
 
+class UpiMobileLink(BaseModel):
+    linked: bool
+
+
 class Upi(BaseModel):
     upi_id: str
     customer_id: str
     account_id: str
     status: str
     pin_set: bool
+    mobile_linked: bool
 
 
 class PinApproval(BaseModel):
@@ -183,6 +219,15 @@ class UpiVerifyResult(BaseModel):
     account_holder_name: str
     currency: str
     status: str
+
+
+class UpiLookupByMobile(BaseModel):
+    mobile_number: str
+
+    @field_validator("mobile_number")
+    @classmethod
+    def mobile_format(cls, value: str) -> str:
+        return _check_mobile(value)
 
 
 class _ClientMoneyRequest(BaseModel):

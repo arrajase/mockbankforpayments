@@ -561,6 +561,31 @@ body {
     padding: 24px 12px;
 }
 
+.inline-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+}
+
+.inline-form .field {
+    flex: 1 1 220px;
+    max-width: 320px;
+    margin-bottom: 0;
+}
+
+.badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #eef2f6;
+    color: var(--primary);
+    vertical-align: middle;
+}
+
 .form-section-heading {
     margin: 28px 0 12px;
     font-size: 1.05rem;

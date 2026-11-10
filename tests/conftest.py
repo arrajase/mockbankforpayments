@@ -14,6 +14,8 @@ from pathlib import Path
 import pytest
 from dotenv import dotenv_values
 
+from tests.app_helpers import new_mobile
+
 # Read only TEST_DATABASE_URL from .env; everything else in .env (notably DATABASE_URL) is ignored.
 _dotenv = dotenv_values(Path(__file__).resolve().parent.parent / ".env")
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or _dotenv.get("TEST_DATABASE_URL")
@@ -100,7 +102,8 @@ class Bank:
         login_id = f"{first_name.lower()}-{uuid.uuid4().hex[:6]}"
         web = TestClient(app, base_url=ORIGIN, headers={"Origin": ORIGIN})
         assert web.post("/auth/signup", json={"first_name": first_name, "last_name": "Test", "login_id": login_id,
-                                              "password": "pw", "confirm_password": "pw"}).status_code == 200
+                                              "mobile_number": new_mobile(), "password": "pw",
+                                              "confirm_password": "pw"}).status_code == 200
         assert web.post("/auth/login", json={"login_id": login_id, "password": "pw"}).status_code == 200
         me = web.get("/me").json()
         account = web.post("/accounts", json={"account_type": "checking", "account_name": "Main", "currency": currency}).json()
