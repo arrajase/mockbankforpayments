@@ -67,6 +67,17 @@ class CustomerOut(BaseModel):
     mobile_number: str | None
 
 
+class PasswordReset(BaseModel):
+    new_password: str = Field(min_length=1)
+    confirm_password: str
+
+    @model_validator(mode="after")
+    def passwords_must_match(self):
+        if self.new_password != self.confirm_password:
+            raise ValueError("new_password and confirm_password do not match")
+        return self
+
+
 class MobileUpdate(BaseModel):
     mobile_number: str
 

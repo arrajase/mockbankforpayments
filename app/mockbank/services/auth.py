@@ -3,9 +3,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.mockbank.core.errors import BankError
-from app.mockbank.db.models import CustomerModel
-from app.mockbank.models.schemas import LoginRequest, MobileUpdate, SignupRequest
-from app.mockbank.utils.common import new_id
+from app.mockbank.db.models import CustomerModel, SessionModel
+from app.mockbank.models.schemas import LoginRequest, MobileUpdate, PasswordReset, SignupRequest
+from app.mockbank.utils.common import new_id, sha256_hex
 
 
 def _hash_password(password: str) -> str:
@@ -60,6 +60,16 @@ def update_mobile(db: Session, customer: CustomerModel, payload: MobileUpdate) -
         raise BankError("CONFLICT", "mobile number is already registered")
     db.refresh(customer)
     return customer
+
+
+def reset_password(db: Session, customer: CustomerModel, payload: PasswordReset, current_token: str | None) -> None:
+    """Set a new password and sign out every other session; the one making the change stays signed in."""
+    customer.password_hash = _hash_password(payload.new_password)
+    others = db.query(SessionModel).filter(SessionModel.customer_id == customer.customer_id)
+    if current_token:
+        others = others.filter(SessionModel.token_hash != sha256_hex(current_token))
+    others.delete(synchronize_session=False)
+    db.commit()
 
 
 def login(db: Session, payload: LoginRequest) -> CustomerModel:

@@ -130,3 +130,30 @@ def test_errors_use_one_format(app_client):
     r = _anon().post("/auth/login", json={})
     assert r.status_code == 422
     assert r.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_reset_password_keeps_this_session_and_signs_out_others(bank):
+    from main import app
+
+    ravi = bank.customer("Ravi")
+    login_id = ravi.web.get("/me").json()["login_id"]
+    other = TestClient(app, base_url="http://testserver", headers={"Origin": "http://testserver"})
+    assert other.post("/auth/login", json={"login_id": login_id, "password": "pw"}).status_code == 200
+
+    r = ravi.web.put("/me/password", json={"new_password": "new-pw", "confirm_password": "new-pw"})
+    assert r.status_code == 204, r.text
+    assert ravi.web.get("/me").status_code == 200
+    assert other.get("/me").status_code == 401
+
+    assert _anon().post("/auth/login", json={"login_id": login_id, "password": "pw"}).status_code == 401
+    assert _anon().post("/auth/login", json={"login_id": login_id, "password": "new-pw"}).status_code == 200
+
+
+def test_reset_password_needs_matching_passwords_and_a_session(bank):
+    ravi = bank.customer("Ravi")
+    r = ravi.web.put("/me/password", json={"new_password": "a", "confirm_password": "b"})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert ravi.web.put("/me/password", json={"new_password": "", "confirm_password": ""}).status_code == 422
+
+    r = _anon().put("/me/password", json={"new_password": "x", "confirm_password": "x"})
+    assert r.status_code == 401

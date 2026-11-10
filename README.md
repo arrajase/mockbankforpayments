@@ -91,6 +91,9 @@ header matching the bank's own site (`ALLOWED_ORIGINS`).
   (`PUT /upi/{upi_id}/mobile-link` with `{"linked": true}`). One UPI ID per
   customer can be linked; linking another moves the link. Changing the mobile
   number keeps the link, under the new number.
+- **Reset Password** sets a new password (`PUT /me/password` with
+  `new_password` and `confirm_password`) for the signed-in customer. The
+  session making the change stays signed in; every other session is signed out.
 - **Post Transaction** ("ATM Deposit" etc.) creates test money, only in the
   customer's own accounts. The bank stamps the date and time.
 - **Pending Requests** lists collect requests addressed to the customer's UPI

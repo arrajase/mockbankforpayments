@@ -73,6 +73,7 @@ PAGES = {
     "/pending-requests": "pending-requests.html",
     "/app-permissions": "app-permissions.html",
     "/developer": "developer.html",
+    "/reset-password": "reset-password.html",
 }
 
 
